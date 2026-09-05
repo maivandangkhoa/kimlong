@@ -1,0 +1,1 @@
+The original supplied images are available in the conversation files. This repository build uses local asset paths; binary asset upload will be completed when the GitHub blob endpoint is available to the connector.
