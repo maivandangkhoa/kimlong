@@ -1,0 +1,81 @@
+name: Compress Uploaded Images
+
+on:
+  push:
+    paths:
+      - 'assets/uploads/**'
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  compress-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Pillow
+        run: |
+          pip install --no-cache-dir Pillow
+
+      - name: Optimize images
+        run: |
+          python3 -c "
+          import os
+          from PIL import Image
+
+          upload_dir = 'assets/uploads'
+          supported_exts = ('.jpg', '.jpeg', '.png', '.webp')
+
+          if not os.path.exists(upload_dir):
+              print('Thư mục upload không tồn tại.')
+              exit(0)
+
+          for filename in os.listdir(upload_dir):
+              filepath = os.path.join(upload_dir, filename)
+              ext = os.path.splitext(filename)[1].lower()
+
+              if not os.path.isfile(filepath) or ext not in supported_exts:
+                  continue
+
+              old_size = os.path.getsize(filepath)
+
+              try:
+                  with Image.open(filepath) as img:
+                      # Giới hạn kích thước chiều rộng/cao tối đa 1920px (chuẩn web full HD)
+                      max_dimension = 1920
+                      if img.width > max_dimension or img.height > max_dimension:
+                          img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+
+                      # Lưu đè để nén lại
+                      if ext in ('.jpg', '.jpeg'):
+                          img = img.convert('RGB')
+                          img.save(filepath, 'JPEG', quality=82, optimize=True)
+                      elif ext == '.png':
+                          # Tối ưu PNG
+                          img.save(filepath, 'PNG', optimize=True)
+                      elif ext == '.webp':
+                          img.save(filepath, 'WEBP', quality=82, method=6)
+
+                  new_size = os.path.getsize(filepath)
+                  reduction = ((old_size - new_size) / old_size) * 100 if old_size > new_size else 0
+                  print(f'{filename}: {old_size / 1024:.1f}KB -> {new_size / 1024:.1f}KB (-{reduction:.1f}%)')
+              except Exception as e:
+                  print(f'Lỗi khi xử lý {filename}: {e}')
+          "
+
+      - name: Commit & Push compressed images
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/uploads/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-compress uploaded images [skip ci]" && git push)
