@@ -1,10 +1,14 @@
 backend:
-  name: git-gateway
+  name: github
+  repo: maivandangkhoa/kimlong
   branch: main
+  # Nếu bạn sử dụng OAuth proxy (ví dụ qua DecapBridge hoặc Cloudflare Worker):
+  # base_url: https://your-oauth-provider.com
+  # auth_endpoint: auth
 
 # Đường dẫn lưu trữ hình ảnh upload
 media_folder: "assets/uploads"
-public_folder: "/assets/uploads"
+public_folder: "assets/uploads"
 
 # Cấu hình ngôn ngữ hiển thị CMS
 locale: "vi"
@@ -15,13 +19,13 @@ collections:
     label: "Bài viết / Tin tức"
     folder: "content/posts"
     create: true
-    slug: "{{slug}}"
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
     extension: "json"
     format: "json"
     fields:
-      - { label: "Tiêu đề", name: "title", widget: "string" }
+      - { label: "Tiêu đề bài viết", name: "title", widget: "string" }
       - { label: "Ngày đăng", name: "date", widget: "datetime", format: "YYYY-MM-DD HH:mm", date_format: "DD/MM/YYYY", time_format: "HH:mm" }
       - { label: "Ảnh đại diện", name: "image", widget: "image", required: false }
       - { label: "Tóm tắt ngắn", name: "summary", widget: "text", required: false }
       - { label: "Nội dung bài viết", name: "body", widget: "markdown" }
-      - { label: "Đăng bài (Hiển thị)", name: "published", widget: "boolean", default: true }
+      - { label: "Hiển thị lên website", name: "published", widget: "boolean", default: true }
