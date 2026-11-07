@@ -1,4 +1,4 @@
-name: Compress Uploaded Images
+name: Convert & Compress Uploaded Images to WebP
 
 on:
   push:
@@ -12,14 +12,14 @@ permissions:
   contents: write
 
 jobs:
-  compress-images:
+  convert-to-webp:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: setup-python@v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -27,55 +27,94 @@ jobs:
         run: |
           pip install --no-cache-dir Pillow
 
-      - name: Optimize images
+      - name: Convert non-webp images and optimize webp
         run: |
           python3 -c "
-          import os
+          import os, glob
           from PIL import Image
 
           upload_dir = 'assets/uploads'
-          supported_exts = ('.jpg', '.jpeg', '.png', '.webp')
+          posts_dir = 'content/posts'
+          supported_exts = ('.jpg', '.jpeg', '.png')
+          converted_map = {}
 
           if not os.path.exists(upload_dir):
               print('Thư mục upload không tồn tại.')
               exit(0)
 
+          # 1. Chuyển đổi và nén ảnh
           for filename in os.listdir(upload_dir):
               filepath = os.path.join(upload_dir, filename)
-              ext = os.path.splitext(filename)[1].lower()
-
-              if not os.path.isfile(filepath) or ext not in supported_exts:
+              if not os.path.isfile(filepath):
                   continue
 
-              old_size = os.path.getsize(filepath)
+              base, ext = os.path.splitext(filename)
+              ext_lower = ext.lower()
 
-              try:
-                  with Image.open(filepath) as img:
-                      # Giới hạn kích thước chiều rộng/cao tối đa 1920px (chuẩn web full HD)
-                      max_dimension = 1920
-                      if img.width > max_dimension or img.height > max_dimension:
-                          img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+              if ext_lower in supported_exts:
+                  webp_filename = f'{base}.webp'
+                  webp_filepath = os.path.join(upload_dir, webp_filename)
+                  old_size = os.path.getsize(filepath)
 
-                      # Lưu đè để nén lại
-                      if ext in ('.jpg', '.jpeg'):
-                          img = img.convert('RGB')
-                          img.save(filepath, 'JPEG', quality=82, optimize=True)
-                      elif ext == '.png':
-                          # Tối ưu PNG
-                          img.save(filepath, 'PNG', optimize=True)
-                      elif ext == '.webp':
-                          img.save(filepath, 'WEBP', quality=82, method=6)
+                  try:
+                      with Image.open(filepath) as img:
+                          # Giới hạn kích thước tối đa 1920px
+                          max_dim = 1920
+                          if img.width > max_dim or img.height > max_dim:
+                              img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
-                  new_size = os.path.getsize(filepath)
-                  reduction = ((old_size - new_size) / old_size) * 100 if old_size > new_size else 0
-                  print(f'{filename}: {old_size / 1024:.1f}KB -> {new_size / 1024:.1f}KB (-{reduction:.1f}%)')
-              except Exception as e:
-                  print(f'Lỗi khi xử lý {filename}: {e}')
+                          # Convert RGBA / P sang phù hợp cho WebP (WebP hỗ trợ RGBA)
+                          if img.mode not in ('RGB', 'RGBA'):
+                              img = img.convert('RGBA')
+
+                          img.save(webp_filepath, 'WEBP', quality=80, method=6)
+
+                      new_size = os.path.getsize(webp_filepath)
+                      os.remove(filepath) # Xoá file gốc (PNG, JPG)
+                      converted_map[filename] = webp_filename
+                      reduction = ((old_size - new_size) / old_size) * 100 if old_size > new_size else 0
+                      print(f'Converted: {filename} ({old_size/1024:.1f}KB) -> {webp_filename} ({new_size/1024:.1f}KB) [-{reduction:.1f}%]')
+                  except Exception as e:
+                      print(f'Lỗi khi xử lý {filename}: {e}')
+
+              elif ext_lower == '.webp':
+                  # Tối ưu lại file webp nếu tải lên trực tiếp
+                  old_size = os.path.getsize(filepath)
+                  try:
+                      with Image.open(filepath) as img:
+                          max_dim = 1920
+                          if img.width > max_dim or img.height > max_dim:
+                              img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                              img.save(filepath, 'WEBP', quality=80, method=6)
+                              new_size = os.path.getsize(filepath)
+                              print(f'Resized WebP: {filename} ({old_size/1024:.1f}KB -> {new_size/1024:.1f}KB)')
+                  except Exception as e:
+                      print(f'Lỗi khi tối ưu {filename}: {e}')
+
+          # 2. Cập nhật đường dẫn trong các file bài viết (content/posts)
+          if converted_map and os.path.exists(posts_dir):
+              for root, _, files in os.walk(posts_dir):
+                  for file in files:
+                      if file.endswith(('.json', '.md', '.markdown')):
+                          post_path = os.path.join(root, file)
+                          with open(post_path, 'r', encoding='utf-8') as f:
+                              content = f.read()
+
+                          updated = False
+                          for old_name, new_name in converted_map.items():
+                              if old_name in content:
+                                  content = content.replace(old_name, new_name)
+                                  updated = True
+
+                          if updated:
+                              with open(post_path, 'w', encoding='utf-8') as f:
+                                  f.write(content)
+                              print(f'Updated references in {post_path}')
           "
 
-      - name: Commit & Push compressed images
+      - name: Commit & Push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/uploads/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-compress uploaded images [skip ci]" && git push)
+          git add -A assets/uploads/ content/posts/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-convert uploaded images to WebP [skip ci]" && git push)
