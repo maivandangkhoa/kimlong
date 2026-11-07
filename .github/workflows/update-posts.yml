@@ -17,22 +17,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Rebuild posts.json
+      - name: Build static posts & sitemap
         run: |
-          mkdir -p content
-          python3 -c "
-          import os, json
-          posts_dir = 'content/posts'
-          files = [f for f in os.listdir(posts_dir) if f.endswith('.json')]
-          files.sort(reverse=True)
-          with open('content/posts.json', 'w', encoding='utf-8') as f:
-              json.dump(files, f, ensure_ascii=False, indent=2)
-          "
+          python3 scripts/build-posts.py
 
-      - name: Commit & Push updated posts.json
+      - name: Commit & Push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add content/posts.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update posts index [skip ci]" && git push)
+          git add content/posts.json bai-viet/ sitemap.xml robots.txt
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-generate static posts, sitemap and posts index [skip ci]" && git push)
 

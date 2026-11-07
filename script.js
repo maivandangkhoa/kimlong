@@ -42,17 +42,17 @@ async function loadPosts() {
 
     window._loadedPosts = posts;
 
-    container.innerHTML = posts.map((post, idx) => {
-      const imgHtml = post.image ? `<img src="${post.image}" alt="${post.title}" class="news-card-img" loading="lazy">` : '';
+    container.innerHTML = posts.map((post) => {
+      const imgHtml = post.image ? `<a href="/bai-viet/${post.slug}.html"><img src="${post.image}" alt="${post.title}" class="news-card-img" loading="lazy"></a>` : '';
       const dateDisplay = post.date ? new Date(post.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
       return `
         <article class="news-card reveal visible">
           ${imgHtml}
           <div class="news-card-body">
             ${dateDisplay ? `<div class="news-date">${dateDisplay}</div>` : ''}
-            <h3 class="news-title">${post.title}</h3>
+            <h3 class="news-title"><a href="/bai-viet/${post.slug}.html" style="color:inherit; text-decoration:none;">${post.title}</a></h3>
             <p class="news-summary">${post.summary || ''}</p>
-            <button class="news-btn" type="button" onclick="viewPostByIndex(${idx})">Xem chi tiết &rarr;</button>
+            <a class="news-btn" href="/bai-viet/${post.slug}.html">Xem chi tiết &rarr;</a>
           </div>
         </article>
       `;
