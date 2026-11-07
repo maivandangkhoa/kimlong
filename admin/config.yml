@@ -1,14 +1,29 @@
+# Use DecapBridge classic auth (required)
 backend:
-  name: github
+  name: git-gateway
   repo: maivandangkhoa/kimlong
   branch: main
-  # Nếu bạn sử dụng OAuth proxy (ví dụ qua DecapBridge hoặc Cloudflare Worker):
-  # base_url: https://your-oauth-provider.com
-  # auth_endpoint: auth
+  identity_url: https://auth.decapbridge.com/sites/5fcb67da-a43a-4b8f-aaa0-08e16ff7a44f
+  gateway_url: https://gateway.decapbridge.com
+
+  # See who did what (optional)
+  commit_messages:
+    create: Create {{collection}} “{{slug}}” - {{author-name}} <{{author-login}}> via DecapBridge
+    update: Update {{collection}} “{{slug}}” - {{author-name}} <{{author-login}}> via DecapBridge
+    delete: Delete {{collection}} “{{slug}}” - {{author-name}} <{{author-login}}> via DecapBridge
+    uploadMedia: Upload “{{path}}” - {{author-name}} <{{author-login}}> via DecapBridge
+    deleteMedia: Delete “{{path}}” - {{author-name}} <{{author-login}}> via DecapBridge
+    openAuthoring: Message {{message}} - {{author-name}} <{{author-login}}> via DecapBridge
+
+# Better Decap + Bridge logo (optional)
+logo_url: https://decapbridge.com/decapcms-with-bridge.svg
+
+# Add site links in Decap CMS (optional)
+site_url: https://quatangdoanhnghiepdanang.com
 
 # Đường dẫn lưu trữ hình ảnh upload
 media_folder: "assets/uploads"
-public_folder: "assets/uploads"
+public_folder: "/assets/uploads"
 
 # Cấu hình ngôn ngữ hiển thị CMS
 locale: "vi"
