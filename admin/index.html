@@ -6,6 +6,72 @@
   <title>Kim Long Gift - Quản trị nội dung</title>
 </head>
 <body>
+  <!-- Tự chuyển ảnh JPG/PNG sang WebP (tối đa 1920px) ngay trên trình duyệt, trước khi Decap upload -->
+  <script>
+  (function () {
+    var MAX = 1920, QUALITY = 0.8, SKIP = '__webpDone';
+
+    function toWebp(file) {
+      if (!/^image\/(jpeg|png)$/.test(file.type)) return Promise.resolve(file);
+      return createImageBitmap(file).then(function (bmp) {
+        var r = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(bmp.width * r);
+        c.height = Math.round(bmp.height * r);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        return new Promise(function (resolve) {
+          c.toBlob(function (blob) {
+            // Trình duyệt không hỗ trợ xuất WebP sẽ trả PNG -> giữ file gốc, workflow GitHub sẽ xử lý
+            if (!blob || blob.type !== 'image/webp') return resolve(file);
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp',
+              { type: 'image/webp', lastModified: Date.now() }));
+          }, 'image/webp', QUALITY);
+        });
+      }).catch(function () { return file; });
+    }
+
+    function convertAll(files) {
+      return Promise.all(Array.prototype.map.call(files, toWebp)).then(function (out) {
+        var dt = new DataTransfer();
+        out.forEach(function (f) { dt.items.add(f); });
+        return dt;
+      });
+    }
+
+    function needsConvert(files) {
+      return files && Array.prototype.some.call(files, function (f) {
+        return /^image\/(jpeg|png)$/.test(f.type);
+      });
+    }
+
+    // Chọn file bằng nút "Tải lên"
+    document.addEventListener('change', function (e) {
+      var el = e.target;
+      if (!el || el.type !== 'file' || el[SKIP] || !needsConvert(el.files)) return;
+      e.stopImmediatePropagation();
+      convertAll(el.files).then(function (dt) {
+        el.files = dt.files;
+        el[SKIP] = true;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el[SKIP] = false;
+      });
+    }, true);
+
+    // Kéo thả file
+    document.addEventListener('drop', function (e) {
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (e[SKIP] || !needsConvert(files)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      var target = e.target;
+      convertAll(files).then(function (dt) {
+        var ev = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt });
+        ev[SKIP] = true;
+        target.dispatchEvent(ev);
+      });
+    }, true);
+  })();
+  </script>
   <!-- Decap CMS tương thích với DecapBridge -->
   <script src="https://unpkg.com/decap-cms@3.9.0/dist/decap-cms.js"></script>
 </body>
