@@ -60,6 +60,8 @@ def markdown_to_html(md_text):
 
 def format_inline(text):
     text = html.escape(text)
+    # Images: ![alt](/path) (before links/italic so '*' and '[' don't clash)
+    text = re.sub(r'!\[(.*?)\]\(([^\s)]+)\)', r'<img src="\2" alt="\1" loading="lazy">', text)
     # Bold: **text**
     text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
     # Italic: *text*
